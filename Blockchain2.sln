@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blockchain2", "Blockchain2\Blockchain2.csproj", "{ECD87500-3519-46E5-973E-7201D16DEC2E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ECD87500-3519-46E5-973E-7201D16DEC2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ECD87500-3519-46E5-973E-7201D16DEC2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ECD87500-3519-46E5-973E-7201D16DEC2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ECD87500-3519-46E5-973E-7201D16DEC2E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
