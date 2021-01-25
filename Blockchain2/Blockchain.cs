@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using MoreLinq;
+using MoreLinq.Extensions;
 
 namespace Blockchain2
 {
@@ -54,7 +57,21 @@ namespace Blockchain2
         public void ProcessPendingTransactions(string minerAddress)
         {
             PendingTransactions.Add(MiningRewardTransaction(minerAddress));
-            Block block = new Block(DateTime.Now, GetLatestBlock().Hash, PendingTransactions);
+            var transactions = PendingTransactions.OrderBy(x => x.TimeStamp);
+            var validTransactions = new List<Transaction>();
+            foreach (var transaction in transactions)
+            {
+                if (!IsTransactionValid(transaction))
+                {
+                    continue;
+                }
+
+                validTransactions.Add(transaction);
+            }
+
+            validTransactions.Add(MiningRewardTransaction(minerAddress));
+
+            Block block = new Block(DateTime.Now, GetLatestBlock().Hash, validTransactions);
             AddBlock(block);
 
             PendingTransactions = new List<Transaction>();
@@ -91,6 +108,19 @@ namespace Blockchain2
                     {
                         userMoney += blockTransaction.Amount;
                     }
+                }
+            }
+
+            foreach (var pendingTransaction in PendingTransactions)
+            {
+                if (transaction.FromAddress == pendingTransaction.FromAddress)
+                {
+                    userMoney -= pendingTransaction.Amount;
+                }
+
+                if (transaction.FromAddress == pendingTransaction.ToAddress)
+                {
+                    userMoney += pendingTransaction.Amount;
                 }
             }
 

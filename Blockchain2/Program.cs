@@ -24,7 +24,7 @@ namespace Blockchain2
                 Console.WriteLine($"Current user is {name}");
             }
 
-            var node = new Node(){Name = name};
+            var node = new Node() {Name = name};
             node.Start(port);
 
             Console.WriteLine("=========================");
@@ -37,10 +37,12 @@ namespace Blockchain2
             Console.WriteLine("6. Get Balance");
             Console.WriteLine("=========================");
 
-            int selection = -1;
-            while (selection != 0)
+            var selection = -1;
+            do
             {
-                Console.WriteLine("Make your selection:");
+                Console.WriteLine("Please select an action");
+                string action = Console.ReadLine();
+                selection = int.Parse(action ?? string.Empty);
 
                 switch (selection)
                 {
@@ -53,32 +55,31 @@ namespace Blockchain2
                         Console.WriteLine("Please enter the amount");
                         string amount = Console.ReadLine();
                         node.MyBlockchain.AddTransactionIfValid(new Transaction(name, receiverName, int.Parse(amount)));
-                        // PhillyCoin.ProcessPendingTransactions(name);
-                        // node.Broadcast(JsonConvert.SerializeObject(PhillyCoin));
                         break;
                     case 3:
                         Console.WriteLine("Blockchain");
                         Console.WriteLine(JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
                         break;
-                    
+
                     case 4:
                         Console.WriteLine("Pending Transactions");
-                        Console.WriteLine(JsonConvert.SerializeObject(node.MyBlockchain.PendingTransactions, Formatting.Indented));
+                        Console.WriteLine(JsonConvert.SerializeObject(node.MyBlockchain.PendingTransactions,
+                            Formatting.Indented));
                         break;
                     case 5:
                         Console.WriteLine("Mine Block");
                         node.MyBlockchain.ProcessPendingTransactions(name);
                         break;
                     case 6:
-                        Console.WriteLine("Your balance is:");
-                        node.MyBlockchain.GetBalance(name);
+                        var balance = node.MyBlockchain.GetBalance(name);
+                        Console.WriteLine($"Your balance is: {balance}");
+                        break;
+                    case 7:
+                        Console.WriteLine($"Broadcast Blockchain");
+                        node.BroadcastBlockchain();
                         break;
                 }
-
-                Console.WriteLine("Please select an action");
-                string action = Console.ReadLine();
-                selection = int.Parse(action ?? string.Empty);
-            }
+            } while (selection != 0);
 
             node.Close();
         }

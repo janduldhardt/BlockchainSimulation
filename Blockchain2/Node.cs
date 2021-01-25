@@ -101,9 +101,9 @@ namespace Blockchain2
             }
         }
 
-        public void BroadcastTransaction(Transaction transaction)
+        public void BroadcastBlockchain()
         {
-            
+            Broadcast(JsonConvert.SerializeObject(MyBlockchain));
         }
 
         public void Broadcast(string data)
