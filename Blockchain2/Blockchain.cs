@@ -6,15 +6,15 @@ namespace Blockchain2
     public class Blockchain
     {
         public IList<Transaction> PendingTransactions = new List<Transaction>();
-        public IList<Block> Chain { set;  get; }
+        public IList<Block> Chain { set; get; }
         public int Difficulty { set; get; } = 2;
-        public int Reward = 1; //1 cryptocurrency
+
+        public int Reward = 10;
 
         public Blockchain()
         {
             InitializeChain();
         }
-
 
         public void InitializeChain()
         {
@@ -34,23 +34,35 @@ namespace Blockchain2
         {
             Chain.Add(CreateGenesisBlock());
         }
-        
+
         public Block GetLatestBlock()
         {
             return Chain[Chain.Count - 1];
         }
 
-        public void CreateTransaction(Transaction transaction)
+        public void AddTransactionIfValid(Transaction transaction)
         {
+            if (transaction.FromAddress != null && !IsTransactionValid(transaction))
+            {
+                Console.WriteLine("Transaction invalid - Insufficient Funds");
+                return;
+            }
+
             PendingTransactions.Add(transaction);
         }
+
         public void ProcessPendingTransactions(string minerAddress)
         {
+            PendingTransactions.Add(MiningRewardTransaction(minerAddress));
             Block block = new Block(DateTime.Now, GetLatestBlock().Hash, PendingTransactions);
             AddBlock(block);
 
             PendingTransactions = new List<Transaction>();
-            CreateTransaction(new Transaction(null, minerAddress, Reward));
+        }
+
+        public Transaction MiningRewardTransaction(string minerAddress)
+        {
+            return new(null, minerAddress, Reward);
         }
 
         public void AddBlock(Block block)
@@ -58,9 +70,31 @@ namespace Blockchain2
             Block latestBlock = GetLatestBlock();
             block.Index = latestBlock.Index + 1;
             block.PreviousHash = latestBlock.Hash;
-            //block.Hash = block.CalculateHash();
             block.Mine(this.Difficulty);
             Chain.Add(block);
+        }
+
+        public bool IsTransactionValid(Transaction transaction)
+        {
+            var user = transaction.FromAddress;
+            var userMoney = 0;
+            foreach (var block in Chain)
+            {
+                foreach (var blockTransaction in block.Transactions)
+                {
+                    if (transaction.FromAddress == blockTransaction.FromAddress)
+                    {
+                        userMoney -= blockTransaction.Amount;
+                    }
+
+                    if (transaction.FromAddress == blockTransaction.ToAddress)
+                    {
+                        userMoney += blockTransaction.Amount;
+                    }
+                }
+            }
+
+            return userMoney - transaction.Amount >= 0;
         }
 
         public bool IsValid()
@@ -80,6 +114,7 @@ namespace Blockchain2
                     return false;
                 }
             }
+
             return true;
         }
 
