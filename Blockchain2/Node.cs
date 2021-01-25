@@ -21,7 +21,7 @@ namespace Blockchain2
 
         IDictionary<string, WebSocket> wsDict = new Dictionary<string, WebSocket>();
 
-        public Blockchain MyBlockchain = new Blockchain();
+        public Blockchain MyBlockchain = new();
 
         public void Start(int port)
         {
