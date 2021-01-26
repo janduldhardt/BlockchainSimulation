@@ -16,7 +16,6 @@ namespace Blockchain2
 
         public Blockchain()
         {
-            InitializeChain();
         }
 
         public void InitializeChain()
@@ -45,7 +44,7 @@ namespace Blockchain2
 
         public void AddTransactionIfValid(Transaction transaction)
         {
-            if (transaction.FromAddress != null && !IsTransactionValid(transaction))
+            if (transaction.FromAddress != null && !IsTransactionValid(transaction, PendingTransactions))
             {
                 Console.WriteLine("Transaction invalid - Insufficient Funds");
                 return;
@@ -56,12 +55,11 @@ namespace Blockchain2
 
         public void ProcessPendingTransactions(string minerAddress)
         {
-            PendingTransactions.Add(MiningRewardTransaction(minerAddress));
             var transactions = PendingTransactions.OrderBy(x => x.TimeStamp);
             var validTransactions = new List<Transaction>();
             foreach (var transaction in transactions)
             {
-                if (!IsTransactionValid(transaction))
+                if (!IsTransactionValid(transaction, validTransactions))
                 {
                     continue;
                 }
@@ -85,13 +83,13 @@ namespace Blockchain2
         public void AddBlock(Block block)
         {
             Block latestBlock = GetLatestBlock();
-            block.Index = latestBlock.Index + 1;
+            block.Height = latestBlock.Height + 1;
             block.PreviousHash = latestBlock.Hash;
-            block.Mine(this.Difficulty);
+            block.Mine(Difficulty);
             Chain.Add(block);
         }
 
-        public bool IsTransactionValid(Transaction transaction)
+        public bool IsTransactionValid(Transaction transaction, IList<Transaction> transactions)
         {
             var user = transaction.FromAddress;
             var userMoney = 0;
@@ -111,7 +109,7 @@ namespace Blockchain2
                 }
             }
 
-            foreach (var pendingTransaction in PendingTransactions)
+            foreach (var pendingTransaction in transactions)
             {
                 if (transaction.FromAddress == pendingTransaction.FromAddress)
                 {

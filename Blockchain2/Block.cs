@@ -8,7 +8,7 @@ namespace Blockchain2
 {
     public class Block
     {
-        public int Index { get; set; }
+        public int Height { get; set; }
         public DateTime TimeStamp { get; set; }
         public string PreviousHash { get; set; }
         public string Hash { get; set; }
@@ -17,7 +17,7 @@ namespace Blockchain2
 
         public Block(DateTime timeStamp, string previousHash, IList<Transaction> transactions)
         {
-            Index = 0;
+            Height = 0;
             TimeStamp = timeStamp;
             PreviousHash = previousHash;
             Transactions = transactions;
