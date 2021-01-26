@@ -7,7 +7,7 @@ using WebSocketSharp.Server;
 
 namespace Blockchain2
 {
-    public class Node : WebSocketBehavior
+    public class Node
     {
         public string Name { get; set; }
 
@@ -22,20 +22,61 @@ namespace Blockchain2
 
         public Blockchain MyBlockchain { get; set; } = new Blockchain();
 
+        public EventHandler MessageReceived;
+
         public Node()
         {
-            
         }
 
         public void Start(int port)
         {
-            _webSocketServer = new WebSocketServer($"{_baseUrl}:{port}");
-            _webSocketServer.AddWebSocketService<Node>();
-            _webSocketServer.Start();
-            
-            
             // Init blockchain or load from file
-            MyBlockchain.InitializeChain();  
+            MyBlockchain.InitializeChain();
+
+            _webSocketServer = new WebSocketServer($"{_baseUrl}:{port}");
+            _webSocketServer.AddWebSocketService<P2PServer>(_blockchainEndPoint, (() => new P2PServer(this)));
+            _webSocketServer.Start();
+
+            MessageReceived += OnMessageReceived;
+        }
+
+        private void OnMessageReceived(object? sender, EventArgs eventArgs)
+        {
+            try
+            {
+                var e = (MessageEventArgs) eventArgs;
+                var p2PServer = (P2PServer) sender;
+                if (e.Data == "Hi Server")
+                {
+                    Console.WriteLine(e.Data);
+                    p2PServer?.SendBack("Hi Client");
+                }
+                else
+                {
+                    // Check whether this nodes our the other nodes Blockchain is the current
+                    Blockchain newChain = JsonConvert.DeserializeObject<Blockchain>(e.Data);
+
+                    if (newChain.IsValid() && newChain.Chain.Count > MyBlockchain.Chain.Count)
+                    {
+                        List<Transaction> newTransactions = new List<Transaction>();
+                        newTransactions.AddRange(newChain.PendingTransactions);
+                        newTransactions.AddRange(MyBlockchain.PendingTransactions);
+
+                        newChain.PendingTransactions = newTransactions;
+                        MyBlockchain = newChain;
+                    }
+
+                    if (!IsChainSynced)
+                    {
+                        p2PServer?.SendBack(JsonConvert.SerializeObject(MyBlockchain));
+                        IsChainSynced = true;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
         }
 
         public bool IsChainSynced { get; set; } = false;
@@ -46,7 +87,13 @@ namespace Blockchain2
             {
                 if (!wsDict.ContainsKey(url))
                 {
-                    WebSocket ws = new WebSocket($"{url}{_blockchainEndPoint}");
+                    url = $"{url}{_blockchainEndPoint}";
+                    WebSocket ws = new WebSocket($"{url}");
+                    ws.OnClose += (sender, e) =>
+                    {
+                        wsDict.Remove(url);
+                    };
+                    
                     ws.OnMessage += (sender, e) =>
                     {
                         if (e.Data == "Hi Client")
@@ -68,51 +115,14 @@ namespace Blockchain2
                         }
                     };
                     ws.Connect();
-                    ws.Send("Hi Server");
-                    ws.Send(JsonConvert.SerializeObject(MyBlockchain));
+                    // ws.Send("Hi Server");
+                    // ws.Send(JsonConvert.SerializeObject(MyBlockchain));
                     wsDict.Add(url, ws);
                 }
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Method Name: {MethodBase.GetCurrentMethod()?.Name} Error: {e.Message}");
-            }
-        }
-
-        protected override void OnMessage(MessageEventArgs e)
-        {
-            try
-            {
-                if (e.Data == "Hi Server")
-                {
-                    Console.WriteLine(e.Data);
-                    Send("Hi Client");
-                }
-                else
-                {
-                    // Check whether this nodes our the other nodes Blockchain is the current
-                    Blockchain newChain = JsonConvert.DeserializeObject<Blockchain>(e.Data);
-
-                    if (newChain.IsValid() && newChain.Chain.Count > MyBlockchain.Chain.Count)
-                    {
-                        List<Transaction> newTransactions = new List<Transaction>();
-                        newTransactions.AddRange(newChain.PendingTransactions);
-                        newTransactions.AddRange(MyBlockchain.PendingTransactions);
-
-                        newChain.PendingTransactions = newTransactions;
-                        MyBlockchain = newChain;
-                    }
-
-                    if (!IsChainSynced)
-                    {
-                        Send(JsonConvert.SerializeObject(MyBlockchain));
-                        IsChainSynced = true;
-                    }
-                }
-            }
-            catch (Exception )
-            {
-                // ignored
             }
         }
 
@@ -136,6 +146,19 @@ namespace Blockchain2
             {
                 item.Value.Close();
             }
+        }
+
+        public bool OpenConnection()
+        {
+            foreach (var (_, value) in wsDict)
+            {
+                if (!value.IsAlive)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

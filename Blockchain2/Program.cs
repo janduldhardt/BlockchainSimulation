@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace Blockchain2
@@ -78,23 +79,32 @@ namespace Blockchain2
                         Console.WriteLine($"Broadcast Blockchain");
                         node.BroadcastBlockchain();
                         break;
+
+                    case 8:
+                        Console.WriteLine($"Check open connection");
+                        node.OpenConnection();
+                        break;
                 }
             } while (selection != 0);
 
             node.Close();
         }
 
-        private static void ConnectToAll(Node node, int port)
+        private static async void ConnectToAll(Node node, int port)
         {
             var connectionList = new List<string>();
-            for (int i = 1; i <= 3; i++)
+            for (var i = 3; i > 0; i--)
             {
                 if (i.ToString() == port.ToString().Last().ToString())
                     continue;
-                connectionList.Add($"ws://127.0.0.1:600{i}");
+                await Task.Run(() =>
+                {
+                    var connectUrl = $"ws://127.0.0.1:600{i}";
+                    // connectionList.Add($"ws://127.0.0.1:600{i}");
+                    node.Connect(connectUrl);
+                });
+                await Task.Delay(1000);
             }
-
-            connectionList.ForEach(x => node.Connect(x));
         }
 
 
