@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -85,6 +86,8 @@ namespace Blockchain2
                         node.OpenConnection();
                         break;
                 }
+
+                File.WriteAllText(node.BlockchainFilePath, JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
             } while (selection != 0);
 
             node.Close();
@@ -92,21 +95,15 @@ namespace Blockchain2
 
         private static async void ConnectToAll(Node node, int port)
         {
-            var connectionList = new List<string>();
             for (var i = 3; i > 0; i--)
             {
                 if (i.ToString() == port.ToString().Last().ToString())
                     continue;
-                await Task.Run(() =>
-                {
-                    var connectUrl = $"ws://127.0.0.1:600{i}";
-                    // connectionList.Add($"ws://127.0.0.1:600{i}");
-                    node.Connect(connectUrl);
-                });
+                var connectUrl = $"ws://127.0.0.1:600{i}";
+                node.Connect(connectUrl);
                 await Task.Delay(1000);
             }
         }
-
 
         static int FreeTcpPort()
         {
