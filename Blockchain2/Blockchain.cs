@@ -17,11 +17,6 @@ namespace Blockchain2 {
         public int Difficulty { set; get; } = 2;
 
         public void AddTransactionIfValid(Transaction transaction) {
-            if (transaction.FromAddress != null && !IsTransactionValid(transaction, PendingTransactions)) {
-                Console.WriteLine("Transaction invalid - Insufficient Funds");
-                return;
-            }
-
             PendingTransactions.Add(transaction);
         }
 
@@ -32,11 +27,11 @@ namespace Blockchain2 {
                 for (var j = 0; j < Chain[i].Transactions.Count; j++) {
                     var transaction = Chain[i].Transactions[j];
 
-                    if (transaction.FromAddress == address) {
+                    if (transaction.Sender == address) {
                         balance -= transaction.Amount;
                     }
 
-                    if (transaction.ToAddress == address) {
+                    if (transaction.Receiver == address) {
                         balance += transaction.Amount;
                     }
                 }
@@ -67,23 +62,24 @@ namespace Blockchain2 {
             return true;
         }
 
-        public void MineNewBlock(string minerAddress) {
+        public void MineNewBlock() {
             var transactions = PendingTransactions.OrderBy(x => x.TimeStamp);
             var validTransactions = new List<Transaction>();
             foreach (var transaction in transactions) {
-                if (!IsTransactionValid(transaction, validTransactions)) {
+                if (transaction.Status == TransactionStatusEnum.Pending) {
                     continue;
                 }
 
+                PendingTransactions.Remove(transaction);
                 validTransactions.Add(transaction);
             }
 
-            validTransactions.Add(MiningRewardTransaction(minerAddress));
+            // validTransactions.Add(MiningRewardTransaction(minerAddress));
 
             var block = new Block(DateTime.Now, GetLatestBlock().Hash, validTransactions);
             AddBlock(block);
 
-            PendingTransactions = new List<Transaction>();
+            // PendingTransactions = new List<Transaction>();
         }
 
         private void AddBlock(Block block) {
@@ -104,33 +100,6 @@ namespace Blockchain2 {
         }
 
         private Block GetLatestBlock() { return Chain[Chain.Count - 1]; }
-
-        private bool IsTransactionValid(Transaction transaction, IList<Transaction> transactions) {
-            var userMoney = 0;
-            foreach (var block in Chain) {
-                foreach (var blockTransaction in block.Transactions) {
-                    if (transaction.FromAddress == blockTransaction.FromAddress) {
-                        userMoney -= blockTransaction.Amount;
-                    }
-
-                    if (transaction.FromAddress == blockTransaction.ToAddress) {
-                        userMoney += blockTransaction.Amount;
-                    }
-                }
-            }
-
-            foreach (var pendingTransaction in transactions) {
-                if (transaction.FromAddress == pendingTransaction.FromAddress) {
-                    userMoney -= pendingTransaction.Amount;
-                }
-
-                if (transaction.FromAddress == pendingTransaction.ToAddress) {
-                    userMoney += pendingTransaction.Amount;
-                }
-            }
-
-            return userMoney - transaction.Amount >= 0;
-        }
 
         private Transaction MiningRewardTransaction(string minerAddress) { return new(null, minerAddress, Reward); }
     }

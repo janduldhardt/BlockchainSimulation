@@ -107,7 +107,7 @@
             // Start new thread which mines the new block each full minute
             int startin = 60 - DateTime.Now.Second;
             var t = new Timer(
-                o => { MyBlockchain.MineNewBlock(Name); },
+                o => { MyBlockchain.MineNewBlock(); },
                 null,
                 startin * 1000,
                 60000);
@@ -167,11 +167,11 @@
         public List<Transaction> FindTransactions(string sender, string receiver, string amount) {
             var allTransactions = MyBlockchain.Chain.SelectMany(x => x.Transactions);
             if (!String.IsNullOrEmpty(sender)) {
-                allTransactions = allTransactions.Where(x => sender.ToLower().Trim() == x.FromAddress?.ToLower());
+                allTransactions = allTransactions.Where(x => sender.ToLower().Trim() == x.Sender?.ToLower());
             }
 
             if (!String.IsNullOrEmpty(receiver)) {
-                allTransactions = allTransactions.Where(x => receiver.ToLower().Trim() == x.ToAddress.ToLower());
+                allTransactions = allTransactions.Where(x => receiver.ToLower().Trim() == x.Receiver.ToLower());
             }
 
             if (!String.IsNullOrEmpty(amount)) {
@@ -180,5 +180,11 @@
 
             return allTransactions.ToList();
         }
+
+        public IEnumerable<Transaction> GetTransactionsToVerify() {
+            var transactions = MyBlockchain.PendingTransactions.Where(x => x.Status == TransactionStatusEnum.Pending && x.Receiver == this.Name);
+            return transactions;
+        }
+        
     }
 }

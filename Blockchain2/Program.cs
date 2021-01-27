@@ -91,7 +91,7 @@
                         break;
                     case 5:
                         Console.WriteLine("Mine Block");
-                        node.MyBlockchain.MineNewBlock(name);
+                        node.MyBlockchain.MineNewBlock();
                         break;
                     case 6:
                         var balance = node.MyBlockchain.GetBalance(name);
@@ -118,6 +118,11 @@
                         Console.WriteLine(JsonConvert.SerializeObject(transactions, Formatting.Indented));
                         node.OpenConnection();
                         break;
+                    case 10:
+                        Console.WriteLine($"Verify my incoming transactions");
+                        HandleMyIncomingTransactions(node);
+                        node.BroadcastBlockchain();
+                        break;
                 }
 
                 File.WriteAllText(node.BlockchainFilePath, JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
@@ -125,6 +130,22 @@
             while (selection != 0);
 
             node.Close();
+        }
+
+        private static void HandleMyIncomingTransactions(Node node) {
+            var transactions = node.GetTransactionsToVerify();
+            foreach (var transaction in transactions) {
+                Console.WriteLine(transaction.CombinedString());
+                Console.WriteLine("Accept? (y/n) or skip");
+                var isAccept = Console.ReadLine()?.Trim().ToLower();
+                if (isAccept == "y") {
+                    transaction.Status = TransactionStatusEnum.Accepted;
+                }
+
+                if (isAccept == "n") {
+                    transaction.Status = TransactionStatusEnum.NotAccepted;
+                }
+            }
         }
     }
 }
