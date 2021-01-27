@@ -10,7 +10,6 @@
     using Newtonsoft.Json;
 
     class Program {
-
         private static async void ConnectToAll(Node node, int port) {
             for (var i = 3; i > 0; i--) {
                 if (i.ToString() == port.ToString().Last().ToString()) {
@@ -54,12 +53,15 @@
             Console.WriteLine("0. Exit");
             Console.WriteLine("Online:");
             Console.WriteLine("1. Connect");
-            Console.WriteLine("2. Add a transaction");
-            Console.WriteLine("3. Display Blockchain");
-            Console.WriteLine("Offline:");
-            Console.WriteLine("4. Show Pending Transactions");
-            Console.WriteLine("5. Mine Block");
-            Console.WriteLine("6. Get Balance");
+            Console.WriteLine("2. Display Blockchain");
+            Console.WriteLine("3. Show Pending Transactions");
+            Console.WriteLine("4. Add a transaction");
+            Console.WriteLine("5. My pending transactions");
+            Console.WriteLine("6. Mine Block");
+            Console.WriteLine("7. Find transactions");
+            Console.WriteLine("8. Find transaction by id");
+            Console.WriteLine("9. Get Balances");
+            Console.WriteLine("10. Get Trustlevel");
             Console.WriteLine("=========================");
 
             var selection = -1;
@@ -75,44 +77,49 @@
                         node.BroadcastBlockchain();
                         break;
                     case 2:
-                        var transaction = HandleNewTransaction(node);
-                        node.BroadcastTransaction(transaction);
-                        break;
-                    case 3:
                         Console.WriteLine("Blockchain");
                         Console.WriteLine(JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
                         break;
-
-                    case 4:
+                    case 3:
                         Console.WriteLine("Pending Transactions");
                         Console.WriteLine(
                             JsonConvert.SerializeObject(
                                 node.MyBlockchain.PendingTransactions,
                                 Formatting.Indented));
                         break;
+                    case 4:
+                        var transaction = HandleNewTransaction(node);
+                        node.BroadcastTransaction(transaction);
+                        break;
                     case 5:
-                        Console.WriteLine("Mine Block");
-                        node.MyBlockchain.MineNewBlock();
-                        break;
-                    case 7:
-                        Console.WriteLine($"Broadcast Blockchain");
-                        node.BroadcastBlockchain();
-                        break;
-                    case 9:
-                        HandleFindTransactions(node);
-                        break;
-                    case 10:
                         Console.WriteLine($"Verify my incoming transactions");
                         HandleMyIncomingTransactions(node);
                         break;
-
-                    case 11:
+                    case 6:
+                        Console.WriteLine("Mine Block");
+                        HandleMining(node);
+                        break;
+                    case 7:
+                        HandleFindTransactions(node);
+                        break;
+                    case 8:
+                        HandleFindTransactionById(node);
+                        break;
+                    case 9:
                         Console.WriteLine($"Balances:");
                         HandleShowBalances(node);
                         break;
+                    case 10:
+                        Console.WriteLine($"Balances:");
+                        HandleGetTrustLevel(node);
+                        break;
+
+                    case 11:
+                        Console.WriteLine($"Broadcast Blockchain");
+                        node.BroadcastBlockchain();
+                        break;
                 }
 
-                node.BroadcastBlockchain();
                 File.WriteAllText(node.BlockchainFilePath, JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
             }
             while (selection != 0);
@@ -120,21 +127,46 @@
             node.Close();
         }
 
+        private static bool _isMining;
+
+        private static void HandleMining(Node node) {
+            if (node.IsMining) {
+                Console.WriteLine("You are currently mining the new block!");
+                return;
+            }
+
+            node.MineBlockOnBackgroundThread();
+        }
+
+        private static void HandleGetTrustLevel(Node node) {
+            Console.WriteLine("Please enter name:");
+            var address = Console.ReadLine() ?? node.Name;
+            var rating = BlockchainUtils.GetRating(address, node.MyBlockchain);
+            Console.WriteLine($"{address} rating: {rating.ToString("N")}%");
+        }
+
+        private static void HandleFindTransactionById(Node node) {
+            var id = Console.ReadLine();
+            var transaction = BlockchainUtils.FindTransactionById(node.MyBlockchain, id);
+            Console.WriteLine(JsonConvert.SerializeObject(transaction, Formatting.Indented));
+        }
+
         private static void HandleShowBalances(Node node) {
-            var balanceDict = node.GetBalanceDict();
+            var balanceDict = BlockchainUtils.GetBalanceDict(node.Name, node.MyBlockchain);
+            var total = balanceDict.Sum(x => x.Value);
             Console.WriteLine("Owed money:");
             foreach (var (name, amount) in balanceDict.Where(x => x.Value > 0)) {
                 Console.WriteLine($"Name: {node.Name.PadRight(10, ' ')} | Amount: {amount.ToString().PadLeft(6, ' ')}");
             }
+
             Console.WriteLine("");
             Console.WriteLine("Gets money from");
             foreach (var (name, amount) in balanceDict.Where(x => x.Value < 0)) {
                 var newamount = amount * -1;
                 Console.WriteLine($"Name: {node.Name.PadRight(10, ' ')} | Amount: {newamount.ToString().PadLeft(6, ' ')}");
             }
-            
+            Console.WriteLine($"Sum: {total}");
         }
-
 
 
         private static Transaction HandleNewTransaction(Node node) {
@@ -155,12 +187,12 @@
             var receiver = Console.ReadLine();
             Console.WriteLine($"Enter amount or press enter");
             var transactionAmount = Console.ReadLine();
-            var transactions = node.FindTransactions(sender, receiver, transactionAmount);
+            var transactions = BlockchainUtils.FindTransactions(node.MyBlockchain, sender, receiver, transactionAmount);
             Console.WriteLine(JsonConvert.SerializeObject(transactions, Formatting.Indented));
         }
 
         private static void HandleMyIncomingTransactions(Node node) {
-            var transactions = node.GetTransactionsToVerify();
+            var transactions = BlockchainUtils.GetTransactionsToVerify(node.MyBlockchain, node.Name);
             foreach (var transaction in transactions) {
                 Console.WriteLine(transaction.CombinedString());
                 Console.WriteLine("Accept? (y/n) or skip");
@@ -170,7 +202,7 @@
                 }
 
                 if (isAccept == "n") {
-                    transaction.Status = TransactionStatusEnum.NotAccepted;
+                    transaction.Status = TransactionStatusEnum.Declined;
                 }
             }
         }

@@ -5,6 +5,7 @@
     using System.Linq;
     using System.Reflection;
     using System.Threading;
+    using System.Threading.Tasks;
     using Newtonsoft.Json;
     using WebSocketSharp;
     using WebSocketSharp.Server;
@@ -23,7 +24,9 @@
 
         private IList<string> knownNodeAddresses = new List<string>();
 
-        public string Address { get; set; }
+        public string IpAddress { get; set; }
+
+        public bool IsMining { get; set; }
 
         public string BlockchainFilePath => Path.Combine(Directory.GetCurrentDirectory(), Name + ".json");
 
@@ -38,12 +41,12 @@
         }
 
         public void BroadcastBlockchain() {
-            var message = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, SenderAddress = Address, Data = JsonConvert.SerializeObject(MyBlockchain) };
+            var message = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, SenderAddress = IpAddress, Data = JsonConvert.SerializeObject(MyBlockchain) };
             Broadcast(Message.GetSerializedMessage(message));
         }
 
         public void BroadcastTransaction(Transaction transaction) {
-            var message = new Message() { MessageTypeEnum = MessageTypeEnum.TransactionMessage, SenderAddress = Address, Data = JsonConvert.SerializeObject(transaction) };
+            var message = new Message() { MessageTypeEnum = MessageTypeEnum.TransactionMessage, SenderAddress = IpAddress, Data = JsonConvert.SerializeObject(transaction) };
             Broadcast(Message.GetSerializedMessage(message));
         }
 
@@ -70,44 +73,8 @@
             }
         }
 
-        public List<Transaction> FindTransactions(string sender, string receiver, string amount) {
-            var allTransactions = MyBlockchain.Chain.SelectMany(x => x.Transactions);
-            if (!String.IsNullOrEmpty(sender)) {
-                allTransactions = allTransactions.Where(x => sender.ToLower().Trim() == x.Sender?.ToLower());
-            }
 
-            if (!String.IsNullOrEmpty(receiver)) {
-                allTransactions = allTransactions.Where(x => receiver.ToLower().Trim() == x.Receiver.ToLower());
-            }
-
-            if (!String.IsNullOrEmpty(amount)) {
-                allTransactions = allTransactions.Where(x => amount.ToLower().Trim() == x.Amount.ToString());
-            }
-
-            return allTransactions.ToList();
-        }
-
-        public Dictionary<string, int> GetBalanceDict() {
-            var transactions = MyBlockchain.Chain.SelectMany(t => t.Transactions).Where(x => x.Status == TransactionStatusEnum.Accepted && (x.Receiver == Name || x.Sender == Name));
-            var debtDict = new Dictionary<string, int>();
-            foreach (var transaction in transactions) {
-                var name = transaction.Receiver == Name ? transaction.Sender : transaction.Receiver;
-                if (!debtDict.ContainsKey(name)) {
-                    debtDict.Add(name, 0);
-                }
-
-                debtDict[name] += transaction.Receiver == Name ? transaction.Amount : transaction.Amount * -1;
-            }
-
-            return debtDict;
-        }
-
-        public IEnumerable<Transaction> GetTransactionsToVerify() {
-            var transactions = MyBlockchain.PendingTransactions.Where(x => x.Status == TransactionStatusEnum.Pending && x.Receiver == Name);
-            return transactions;
-        }
-
-        public bool IsBlockchainNewer(Blockchain newChain) {
+        private bool IsBlockchainNewer(Blockchain newChain) {
             // Check whether this nodes our the other nodes Blockchain is the current
             if (newChain.IsValid() && newChain.Chain.Count > MyBlockchain.Chain.Count) {
                 return true;
@@ -119,28 +86,33 @@
         public void Start(int port) {
             // Init blockchain or load from file
             // TODO: Reactivate
-            // try {
-            //     MyBlockchain = JsonConvert.DeserializeObject<Blockchain>(File.ReadAllText(BlockchainFilePath));
-            // } catch (Exception e) {
-            //     MyBlockchain.InitializeChain();
-            // }
-            MyBlockchain.InitializeChain();
+            try {
+                MyBlockchain = JsonConvert.DeserializeObject<Blockchain>(File.ReadAllText(BlockchainFilePath));
+            } catch (Exception e) {
+                MyBlockchain.InitializeChain();
+            }
 
-            Address = $"{_baseUrl}:{port}";
+            IpAddress = $"{_baseUrl}:{port}";
 
             // Start new thread which mines the new block each full minute
-            int startin = 60 - DateTime.Now.Second;
-            var t = new Timer(
-                o => { MyBlockchain.MineNewBlock(); },
-                null,
-                startin * 1000,
-                60000);
 
             _webSocketServer = new WebSocketServer($"{_baseUrl}:{port}");
             _webSocketServer.AddWebSocketService(_blockchainEndPoint, () => new P2PServer(this));
             _webSocketServer.Start();
 
             MessageReceived += OnMessageReceived;
+        }
+
+        public void MineBlockOnBackgroundThread() {
+            IsMining = true;
+            Task.Run(
+                () => {
+                    Console.WriteLine("Started mining new block in the background...");
+                    MyBlockchain.MineNewBlock();
+                    IsMining = false;
+                    Console.WriteLine("Success: New Block mined! Broadcasting to other nodes...");
+                });
+            BroadcastBlockchain();
         }
 
 
@@ -160,7 +132,7 @@
                             return;
                         }
 
-                        var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, Flag = true, SenderAddress = Address, Data = JsonConvert.SerializeObject(MyBlockchain) };
+                        var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, Flag = true, SenderAddress = IpAddress, Data = JsonConvert.SerializeObject(MyBlockchain) };
                         SendBack(sender, JsonConvert.SerializeObject(answer));
                     }
                 }

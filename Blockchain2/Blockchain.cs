@@ -2,6 +2,7 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using MoreLinq;
 
     public class Blockchain {
 
@@ -14,6 +15,9 @@
 
         public int Difficulty { set; get; } = 2;
 
+        public TimeSpan TimeBeetweenMining { get; } = new TimeSpan(0,1,0);
+
+
         public void AddTransaction(Transaction transaction) {
             // if (PendingTransactions.Count(x => x.Status != TransactionStatusEnum.Pending) >= MaxTransactions) {
             //     Console.WriteLine("Maximum transaction reached! Transaction not added. Please mine the new block");
@@ -22,25 +26,6 @@
             PendingTransactions.Add(transaction);
         }
 
-        public int GetBalance(string address) {
-            var balance = 0;
-
-            for (var i = 0; i < Chain.Count; i++) {
-                for (var j = 0; j < Chain[i].Transactions.Count; j++) {
-                    var transaction = Chain[i].Transactions[j];
-
-                    if (transaction.Sender == address) {
-                        balance -= transaction.Amount;
-                    }
-
-                    if (transaction.Receiver == address) {
-                        balance += transaction.Amount;
-                    }
-                }
-            }
-
-            return balance;
-        }
 
         public void InitializeChain() {
             Chain = new List<Block>();
@@ -74,6 +59,7 @@
 
             var block = new Block(DateTime.Now, GetLatestBlock().Hash, validTransactions);
             AddBlock(block);
+            // Increase difficulty if blocks are mined too fast
         }
 
         private void AddBlock(Block block) {
@@ -82,6 +68,12 @@
             block.PreviousHash = latestBlock.Hash;
             block.Mine(Difficulty);
             Chain.Add(block);
+
+            if (block.TimeStamp - latestBlock.TimeStamp < TimeBeetweenMining) {
+                Difficulty += 1;
+            } else {
+                Difficulty = Difficulty == 1 ? Difficulty : Difficulty - 1;
+            }
         }
 
         private void AddGenesisBlock() { Chain.Add(CreateGenesisBlock()); }
@@ -93,7 +85,7 @@
             return block;
         }
 
-        private Block GetLatestBlock() { return Chain[Chain.Count - 1]; }
+        public Block GetLatestBlock() { return Chain[Chain.Count - 1]; }
 
         private Transaction MiningRewardTransaction(string minerAddress) { return new(null, minerAddress, Reward); }
     }
