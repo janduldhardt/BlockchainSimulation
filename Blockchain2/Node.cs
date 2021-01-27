@@ -33,9 +33,10 @@
         }
 
         public void BroadcastBlockchain() {
-            string data = JsonConvert.SerializeObject(MyBlockchain);
-            Broadcast(data);
+            var message = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, SenderAddress = Address, Data = JsonConvert.SerializeObject(MyBlockchain) };
+            Broadcast(Message.GetSerializedMessage(message));
         }
+
 
         public void Close() {
             foreach (KeyValuePair<string, WebSocket> item in wsDict) {
@@ -78,6 +79,9 @@
 
         public void Start(int port) {
             // Init blockchain or load from file
+
+            Address = $"{_baseUrl}:{port}";
+
             try {
                 MyBlockchain = JsonConvert.DeserializeObject<Blockchain>(File.ReadAllText(BlockchainFilePath));
             } catch (Exception e) {
@@ -99,6 +103,8 @@
             MessageReceived += OnMessageReceived;
         }
 
+        public string Address { get; set; }
+
         public void UpdateMyBlockchain(Blockchain newChain) {
             // Check whether this nodes our the other nodes Blockchain is the current
             if (newChain.IsValid() && newChain.Chain.Count > MyBlockchain.Chain.Count) {
@@ -115,11 +121,11 @@
             try {
                 var e = (MessageEventArgs)eventArgs;
                 var p2PServer = (P2PServer)sender;
-                if (e.Data == "Hi Server") {
-                    Console.WriteLine(e.Data);
-                    p2PServer?.SendBack("Hi Client");
-                } else {
-                    var newChain = JsonConvert.DeserializeObject<Blockchain>(e.Data);
+
+                var message = Message.GetDeserializedMessage(e.Data);
+
+                if (message.MessageTypeEnum == MessageTypeEnum.BlockchainMessage) {
+                    var newChain = JsonConvert.DeserializeObject<Blockchain>(message.Data);
                     UpdateMyBlockchain(newChain);
                 }
             } catch (Exception) {
