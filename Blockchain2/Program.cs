@@ -1,5 +1,7 @@
 ﻿namespace Blockchain2 {
     using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
     using System.Net;
@@ -50,9 +52,11 @@
 
             Console.WriteLine("=========================");
             Console.WriteLine("0. Exit");
+            Console.WriteLine("Online:");
             Console.WriteLine("1. Connect");
             Console.WriteLine("2. Add a transaction");
             Console.WriteLine("3. Display Blockchain");
+            Console.WriteLine("Offline:");
             Console.WriteLine("4. Show Pending Transactions");
             Console.WriteLine("5. Mine Block");
             Console.WriteLine("6. Get Balance");
@@ -71,11 +75,8 @@
                         node.BroadcastBlockchain();
                         break;
                     case 2:
-                        Console.WriteLine("Please enter the receiver name");
-                        string receiverName = Console.ReadLine();
-                        Console.WriteLine("Please enter the amount");
-                        string amount = Console.ReadLine();
-                        node.MyBlockchain.AddTransactionIfValid(new Transaction(name, receiverName, int.Parse(amount)));
+                        var transaction = HandleNewTransaction(node);
+                        node.BroadcastTransaction(transaction);
                         break;
                     case 3:
                         Console.WriteLine("Blockchain");
@@ -93,43 +94,69 @@
                         Console.WriteLine("Mine Block");
                         node.MyBlockchain.MineNewBlock();
                         break;
-                    case 6:
-                        var balance = node.MyBlockchain.GetBalance(name);
-                        Console.WriteLine($"Your balance is: {balance}");
-                        break;
                     case 7:
                         Console.WriteLine($"Broadcast Blockchain");
                         node.BroadcastBlockchain();
                         break;
-
-                    case 8:
-                        Console.WriteLine($"Check open connection");
-                        node.OpenConnection();
-                        break;
                     case 9:
-                        Console.WriteLine($"Find transactions");
-                        Console.WriteLine($"Enter sender name or press enter");
-                        var sender = Console.ReadLine();
-                        Console.WriteLine($"Enter receiver name or press enter");
-                        var receiver = Console.ReadLine();
-                        Console.WriteLine($"Enter amount or press enter");
-                        var transactionAmount = Console.ReadLine();
-                        var transactions = node.FindTransactions(sender, receiver, transactionAmount);
-                        Console.WriteLine(JsonConvert.SerializeObject(transactions, Formatting.Indented));
-                        node.OpenConnection();
+                        HandleFindTransactions(node);
                         break;
                     case 10:
                         Console.WriteLine($"Verify my incoming transactions");
                         HandleMyIncomingTransactions(node);
-                        node.BroadcastBlockchain();
+                        break;
+
+                    case 11:
+                        Console.WriteLine($"Balances:");
+                        HandleShowBalances(node);
                         break;
                 }
 
+                node.BroadcastBlockchain();
                 File.WriteAllText(node.BlockchainFilePath, JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
             }
             while (selection != 0);
 
             node.Close();
+        }
+
+        private static void HandleShowBalances(Node node) {
+            var balanceDict = node.GetBalanceDict();
+            Console.WriteLine("Owed money:");
+            foreach (var (name, amount) in balanceDict.Where(x => x.Value > 0)) {
+                Console.WriteLine($"Name: {node.Name.PadRight(10, ' ')} | Amount: {amount.ToString().PadLeft(6, ' ')}");
+            }
+            Console.WriteLine("");
+            Console.WriteLine("Gets money from");
+            foreach (var (name, amount) in balanceDict.Where(x => x.Value < 0)) {
+                var newamount = amount * -1;
+                Console.WriteLine($"Name: {node.Name.PadRight(10, ' ')} | Amount: {newamount.ToString().PadLeft(6, ' ')}");
+            }
+            
+        }
+
+
+
+        private static Transaction HandleNewTransaction(Node node) {
+            Console.WriteLine("Please enter the receiver name");
+            string receiverName = Console.ReadLine();
+            Console.WriteLine("Please enter the amount");
+            string amount = Console.ReadLine();
+            var transaction = new Transaction(node.Name, receiverName, int.Parse(amount));
+            node.MyBlockchain.AddTransaction(transaction);
+            return transaction;
+        }
+
+        private static void HandleFindTransactions(Node node) {
+            Console.WriteLine($"Find transactions");
+            Console.WriteLine($"Enter sender name or press enter");
+            var sender = Console.ReadLine();
+            Console.WriteLine($"Enter receiver name or press enter");
+            var receiver = Console.ReadLine();
+            Console.WriteLine($"Enter amount or press enter");
+            var transactionAmount = Console.ReadLine();
+            var transactions = node.FindTransactions(sender, receiver, transactionAmount);
+            Console.WriteLine(JsonConvert.SerializeObject(transactions, Formatting.Indented));
         }
 
         private static void HandleMyIncomingTransactions(Node node) {

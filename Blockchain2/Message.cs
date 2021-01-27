@@ -5,6 +5,7 @@
     public class Message {
         public MessageTypeEnum MessageTypeEnum { get; set; }
 
+        public bool Flag { get; set; }
         public string SenderAddress { get; set; }
 
         public string Data { get; set; }

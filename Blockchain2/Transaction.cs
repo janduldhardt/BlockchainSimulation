@@ -4,12 +4,18 @@
     public class Transaction {
 
         public Transaction(string sender, string receiver, int amount) {
+            Id = Guid.NewGuid();
             Sender = sender;
             Receiver = receiver;
             Amount = amount;
             TimeStamp = DateTime.Now;
             Status = TransactionStatusEnum.Pending;
         }
+        
+        /// <summary>
+        ///  Unique Identifier for this transaction
+        /// </summary>
+        public Guid Id { get; set; }
 
         public TransactionStatusEnum Status { get; set; }
 

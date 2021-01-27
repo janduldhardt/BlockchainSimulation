@@ -16,12 +16,12 @@
 
         private readonly string _blockchainEndPoint = "/Blockchain";
 
-        private IList<string> knownNodeAddresses = new List<string>();
-
         private readonly IDictionary<string, WebSocket> wsDict = new Dictionary<string, WebSocket>();
 
 
         private WebSocketServer _webSocketServer;
+
+        private IList<string> knownNodeAddresses = new List<string>();
 
         public string Address { get; set; }
 
@@ -42,6 +42,11 @@
             Broadcast(Message.GetSerializedMessage(message));
         }
 
+        public void BroadcastTransaction(Transaction transaction) {
+            var message = new Message() { MessageTypeEnum = MessageTypeEnum.TransactionMessage, SenderAddress = Address, Data = JsonConvert.SerializeObject(transaction) };
+            Broadcast(Message.GetSerializedMessage(message));
+        }
+
 
         public void Close() {
             foreach (KeyValuePair<string, WebSocket> item in wsDict) {
@@ -58,11 +63,48 @@
                     ws.OnMessage += OnMessageReceived;
                     ws.Connect();
                     wsDict.Add(url, ws);
-                    
                 }
             } catch (Exception e) {
-                Console.WriteLine($"Method Name: {MethodBase.GetCurrentMethod()?.Name} Error: {e.Message}");
+                Console.Error.WriteLine(
+                    $"Current Method: {MethodBase.GetCurrentMethod()} - Message: {e.Message}");
             }
+        }
+
+        public List<Transaction> FindTransactions(string sender, string receiver, string amount) {
+            var allTransactions = MyBlockchain.Chain.SelectMany(x => x.Transactions);
+            if (!String.IsNullOrEmpty(sender)) {
+                allTransactions = allTransactions.Where(x => sender.ToLower().Trim() == x.Sender?.ToLower());
+            }
+
+            if (!String.IsNullOrEmpty(receiver)) {
+                allTransactions = allTransactions.Where(x => receiver.ToLower().Trim() == x.Receiver.ToLower());
+            }
+
+            if (!String.IsNullOrEmpty(amount)) {
+                allTransactions = allTransactions.Where(x => amount.ToLower().Trim() == x.Amount.ToString());
+            }
+
+            return allTransactions.ToList();
+        }
+
+        public Dictionary<string, int> GetBalanceDict() {
+            var transactions = MyBlockchain.Chain.SelectMany(t => t.Transactions).Where(x => x.Status == TransactionStatusEnum.Accepted && (x.Receiver == Name || x.Sender == Name));
+            var debtDict = new Dictionary<string, int>();
+            foreach (var transaction in transactions) {
+                var name = transaction.Receiver == Name ? transaction.Sender : transaction.Receiver;
+                if (!debtDict.ContainsKey(name)) {
+                    debtDict.Add(name, 0);
+                }
+
+                debtDict[name] += transaction.Receiver == Name ? transaction.Amount : transaction.Amount * -1;
+            }
+
+            return debtDict;
+        }
+
+        public IEnumerable<Transaction> GetTransactionsToVerify() {
+            var transactions = MyBlockchain.PendingTransactions.Where(x => x.Status == TransactionStatusEnum.Pending && x.Receiver == Name);
+            return transactions;
         }
 
         public bool IsBlockchainNewer(Blockchain newChain) {
@@ -72,24 +114,6 @@
             }
 
             return false;
-        }
-
-
-        public bool OpenConnection() {
-            foreach ((string _, WebSocket value) in wsDict) {
-                if (!value.IsAlive) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        public void RequestBlockchain() {
-            // var ws = DictHelper.RandomValues(wsDict).First();
-            var message = new Message() { MessageTypeEnum = MessageTypeEnum.RequestBlockchainMessage, SenderAddress = Address };
-            // ws.Send(JsonConvert.SerializeObject(message));
-            Broadcast(JsonConvert.SerializeObject(message));
         }
 
         public void Start(int port) {
@@ -128,24 +152,29 @@
 
                 if (message.MessageTypeEnum == MessageTypeEnum.BlockchainMessage) {
                     var newChain = JsonConvert.DeserializeObject<Blockchain>(message.Data);
+                    UpdatePendingTransactions(newChain);
                     if (IsBlockchainNewer(newChain)) {
                         UpdateMyBlockchain(newChain);
                     } else {
-                        var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, SenderAddress = Address, Data = JsonConvert.SerializeObject(MyBlockchain) };
+                        if (message.Flag) {
+                            return;
+                        }
+
+                        var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, Flag = true, SenderAddress = Address, Data = JsonConvert.SerializeObject(MyBlockchain) };
                         SendBack(sender, JsonConvert.SerializeObject(answer));
                     }
-
-                    ;
                 }
 
-                // if (message.MessageTypeEnum == MessageTypeEnum.RequestBlockchainMessage) {
-                //     var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, SenderAddress = Address, Data = JsonConvert.SerializeObject(MyBlockchain) };
-                //     p2PServer?.SendBack(JsonConvert.SerializeObject(answer));
-                // }
-            } catch (Exception) {
-                // ignored
+                if (message.MessageTypeEnum == MessageTypeEnum.TransactionMessage) {
+                    var transaction = JsonConvert.DeserializeObject<Transaction>(message.Data);
+                    MyBlockchain.PendingTransactions.Add(transaction);
+                }
+            } catch (Exception e) {
+                Console.Error.WriteLine(
+                    $"Current Method: {MethodBase.GetCurrentMethod()} - Message: {e.Message}");
             }
         }
+
 
         private void SendBack(object sender, string data) {
             if (sender.GetType() == typeof(P2PServer)) {
@@ -156,35 +185,15 @@
         }
 
         private void UpdateMyBlockchain(Blockchain newChain) {
-            var newTransactions = new List<Transaction>();
-            newTransactions.AddRange(newChain.PendingTransactions);
-            newTransactions.AddRange(MyBlockchain.PendingTransactions);
-
-            newChain.PendingTransactions = newTransactions;
+            newChain.PendingTransactions = MyBlockchain.PendingTransactions;
             MyBlockchain = newChain;
         }
 
-        public List<Transaction> FindTransactions(string sender, string receiver, string amount) {
-            var allTransactions = MyBlockchain.Chain.SelectMany(x => x.Transactions);
-            if (!String.IsNullOrEmpty(sender)) {
-                allTransactions = allTransactions.Where(x => sender.ToLower().Trim() == x.Sender?.ToLower());
-            }
-
-            if (!String.IsNullOrEmpty(receiver)) {
-                allTransactions = allTransactions.Where(x => receiver.ToLower().Trim() == x.Receiver.ToLower());
-            }
-
-            if (!String.IsNullOrEmpty(amount)) {
-                allTransactions = allTransactions.Where(x => amount.ToLower().Trim() == x.Amount.ToString());
-            }
-
-            return allTransactions.ToList();
+        private void UpdatePendingTransactions(Blockchain newChain) {
+            var currentTransactions = MyBlockchain.PendingTransactions.Select(x => x.Id);
+            var newTransactions = newChain.PendingTransactions.Where(t => !currentTransactions.Contains(t.Id));
+            IEnumerable<Transaction> transactions = MyBlockchain.PendingTransactions.Concat(newTransactions);
+            MyBlockchain.PendingTransactions = transactions.ToList();
         }
-
-        public IEnumerable<Transaction> GetTransactionsToVerify() {
-            var transactions = MyBlockchain.PendingTransactions.Where(x => x.Status == TransactionStatusEnum.Pending && x.Receiver == this.Name);
-            return transactions;
-        }
-        
     }
 }

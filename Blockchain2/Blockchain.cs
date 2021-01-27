@@ -1,13 +1,11 @@
-﻿#region
-
-#endregion
-
-namespace Blockchain2 {
+﻿namespace Blockchain2 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
 
     public class Blockchain {
+
+        public int MaxTransactions = 10;
         public IList<Transaction> PendingTransactions = new List<Transaction>();
 
         public int Reward = 10;
@@ -16,7 +14,11 @@ namespace Blockchain2 {
 
         public int Difficulty { set; get; } = 2;
 
-        public void AddTransactionIfValid(Transaction transaction) {
+        public void AddTransaction(Transaction transaction) {
+            // if (PendingTransactions.Count(x => x.Status != TransactionStatusEnum.Pending) >= MaxTransactions) {
+            //     Console.WriteLine("Maximum transaction reached! Transaction not added. Please mine the new block");
+            //     return;
+            // }
             PendingTransactions.Add(transaction);
         }
 
@@ -63,23 +65,15 @@ namespace Blockchain2 {
         }
 
         public void MineNewBlock() {
-            var transactions = PendingTransactions.OrderBy(x => x.TimeStamp);
+            var transactions = PendingTransactions.OrderBy(x => x.TimeStamp).Where(t => t.Status != TransactionStatusEnum.Pending).Take(MaxTransactions);
             var validTransactions = new List<Transaction>();
             foreach (var transaction in transactions) {
-                if (transaction.Status == TransactionStatusEnum.Pending) {
-                    continue;
-                }
-
                 PendingTransactions.Remove(transaction);
                 validTransactions.Add(transaction);
             }
 
-            // validTransactions.Add(MiningRewardTransaction(minerAddress));
-
             var block = new Block(DateTime.Now, GetLatestBlock().Hash, validTransactions);
             AddBlock(block);
-
-            // PendingTransactions = new List<Transaction>();
         }
 
         private void AddBlock(Block block) {
