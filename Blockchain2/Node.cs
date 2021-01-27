@@ -2,6 +2,7 @@
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Reflection;
     using System.Threading;
     using Newtonsoft.Json;
@@ -161,6 +162,23 @@
 
             newChain.PendingTransactions = newTransactions;
             MyBlockchain = newChain;
+        }
+
+        public List<Transaction> FindTransactions(string sender, string receiver, string amount) {
+            var allTransactions = MyBlockchain.Chain.SelectMany(x => x.Transactions);
+            if (!String.IsNullOrEmpty(sender)) {
+                allTransactions = allTransactions.Where(x => sender.ToLower().Trim() == x.FromAddress?.ToLower());
+            }
+
+            if (!String.IsNullOrEmpty(receiver)) {
+                allTransactions = allTransactions.Where(x => receiver.ToLower().Trim() == x.ToAddress.ToLower());
+            }
+
+            if (!String.IsNullOrEmpty(amount)) {
+                allTransactions = allTransactions.Where(x => amount.ToLower().Trim() == x.Amount.ToString());
+            }
+
+            return allTransactions.ToList();
         }
     }
 }

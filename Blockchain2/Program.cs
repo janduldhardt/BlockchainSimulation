@@ -106,6 +106,18 @@
                         Console.WriteLine($"Check open connection");
                         node.OpenConnection();
                         break;
+                    case 9:
+                        Console.WriteLine($"Find transactions");
+                        Console.WriteLine($"Enter sender name or press enter");
+                        var sender = Console.ReadLine();
+                        Console.WriteLine($"Enter receiver name or press enter");
+                        var receiver = Console.ReadLine();
+                        Console.WriteLine($"Enter amount or press enter");
+                        var transactionAmount = Console.ReadLine();
+                        var transactions = node.FindTransactions(sender, receiver, transactionAmount);
+                        Console.WriteLine(JsonConvert.SerializeObject(transactions, Formatting.Indented));
+                        node.OpenConnection();
+                        break;
                 }
 
                 File.WriteAllText(node.BlockchainFilePath, JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
