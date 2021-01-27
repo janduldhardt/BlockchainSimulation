@@ -67,6 +67,8 @@
                 switch (selection) {
                     case 1:
                         ConnectToAll(node, port);
+                        Task.Delay(2000);
+                        node.BroadcastBlockchain();
                         break;
                     case 2:
                         Console.WriteLine("Please enter the receiver name");
