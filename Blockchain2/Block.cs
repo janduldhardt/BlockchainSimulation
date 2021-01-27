@@ -1,30 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Text;
-using Newtonsoft.Json;
+﻿namespace Blockchain2 {
+    using System;
+    using System.Collections.Generic;
+    using System.Security.Cryptography;
+    using System.Text;
+    using Newtonsoft.Json;
 
-namespace Blockchain2
-{
-    public class Block
-    {
-        public int Height { get; set; }
-        public DateTime TimeStamp { get; set; }
-        public string PreviousHash { get; set; }
-        public string Hash { get; set; }
-        public IList<Transaction> Transactions { get; set; }
-        public int Nonce { get; set; } = 0;
+    public class Block {
 
-        public Block(DateTime timeStamp, string previousHash, IList<Transaction> transactions)
-        {
+        public Block(DateTime timeStamp, string previousHash, IList<Transaction> transactions) {
             Height = 0;
             TimeStamp = timeStamp;
             PreviousHash = previousHash;
             Transactions = transactions;
         }
 
-        public string CalculateHash()
-        {
+        public string Hash { get; set; }
+
+        public int Height { get; set; }
+
+        public int Nonce { get; set; } = 0;
+
+        public string PreviousHash { get; set; }
+
+        public DateTime TimeStamp { get; set; }
+
+        public IList<Transaction> Transactions { get; set; }
+
+        public string CalculateHash() {
             SHA256 sha256 = SHA256.Create();
 
             byte[] inputBytes = Encoding.ASCII.GetBytes($"{TimeStamp}-{PreviousHash ?? ""}-{JsonConvert.SerializeObject(Transactions)}-{Nonce}");
@@ -33,13 +35,11 @@ namespace Blockchain2
             return Convert.ToBase64String(outputBytes);
         }
 
-        public void Mine(int difficulty)
-        {
+        public void Mine(int difficulty) {
             var leadingZeros = new string('0', difficulty);
-            while (this.Hash == null || this.Hash.Substring(0, difficulty) != leadingZeros)
-            {
-                this.Nonce++;
-                this.Hash = this.CalculateHash();
+            while (Hash == null || Hash.Substring(0, difficulty) != leadingZeros) {
+                Nonce++;
+                Hash = CalculateHash();
             }
         }
     }

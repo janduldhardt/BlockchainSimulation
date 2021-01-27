@@ -1,32 +1,51 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
+﻿namespace Blockchain2 {
+    using System;
+    using System.IO;
+    using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
+    using System.Threading.Tasks;
+    using Newtonsoft.Json;
 
-namespace Blockchain2
-{
-    class Program
-    {
-        static void Main(string[] args)
-        {
+    class Program {
+
+        private static async void ConnectToAll(Node node, int port) {
+            for (var i = 3; i > 0; i--) {
+                if (i.ToString() == port.ToString().Last().ToString()) {
+                    continue;
+                }
+
+                var connectUrl = $"ws://127.0.0.1:600{i}";
+                node.Connect(connectUrl);
+                await Task.Delay(1000);
+            }
+        }
+
+        static int FreeTcpPort() {
+            TcpListener l = new TcpListener(IPAddress.Loopback, 0);
+            l.Start();
+            int port = ((IPEndPoint)l.LocalEndpoint).Port;
+            l.Stop();
+            return port;
+        }
+
+        static void Main(string[] args) {
             int port = FreeTcpPort();
             string name = "Unknown";
 
-            if (args.Length >= 1)
+            if (args.Length >= 1) {
                 port = int.Parse(args[0]);
-            if (args.Length >= 2)
-                name = args[1];
+            }
 
-            if (name != "Unkown")
-            {
+            if (args.Length >= 2) {
+                name = args[1];
+            }
+
+            if (name != "Unkown") {
                 Console.WriteLine($"Current user is {name}");
             }
 
-            var node = new Node() {Name = name};
+            var node = new Node() { Name = name };
             node.Start(port);
 
             Console.WriteLine("=========================");
@@ -40,14 +59,12 @@ namespace Blockchain2
             Console.WriteLine("=========================");
 
             var selection = -1;
-            do
-            {
+            do {
                 Console.WriteLine("Please select an action");
                 string action = Console.ReadLine();
                 selection = int.Parse(action ?? string.Empty);
 
-                switch (selection)
-                {
+                switch (selection) {
                     case 1:
                         ConnectToAll(node, port);
                         break;
@@ -65,12 +82,14 @@ namespace Blockchain2
 
                     case 4:
                         Console.WriteLine("Pending Transactions");
-                        Console.WriteLine(JsonConvert.SerializeObject(node.MyBlockchain.PendingTransactions,
-                            Formatting.Indented));
+                        Console.WriteLine(
+                            JsonConvert.SerializeObject(
+                                node.MyBlockchain.PendingTransactions,
+                                Formatting.Indented));
                         break;
                     case 5:
                         Console.WriteLine("Mine Block");
-                        node.MyBlockchain.ProcessPendingTransactions(name);
+                        node.MyBlockchain.MineNewBlock(name);
                         break;
                     case 6:
                         var balance = node.MyBlockchain.GetBalance(name);
@@ -88,30 +107,10 @@ namespace Blockchain2
                 }
 
                 File.WriteAllText(node.BlockchainFilePath, JsonConvert.SerializeObject(node.MyBlockchain, Formatting.Indented));
-            } while (selection != 0);
+            }
+            while (selection != 0);
 
             node.Close();
-        }
-
-        private static async void ConnectToAll(Node node, int port)
-        {
-            for (var i = 3; i > 0; i--)
-            {
-                if (i.ToString() == port.ToString().Last().ToString())
-                    continue;
-                var connectUrl = $"ws://127.0.0.1:600{i}";
-                node.Connect(connectUrl);
-                await Task.Delay(1000);
-            }
-        }
-
-        static int FreeTcpPort()
-        {
-            TcpListener l = new TcpListener(IPAddress.Loopback, 0);
-            l.Start();
-            int port = ((IPEndPoint) l.LocalEndpoint).Port;
-            l.Stop();
-            return port;
         }
     }
 }

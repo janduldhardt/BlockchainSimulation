@@ -1,25 +1,16 @@
-﻿using System;
-using WebSocketSharp;
-using WebSocketSharp.Server;
+﻿namespace Blockchain2 {
+    using WebSocketSharp;
+    using WebSocketSharp.Server;
 
-namespace Blockchain2
-{
-    public class P2PServer: WebSocketBehavior
-    {
+    public class P2PServer : WebSocketBehavior {
         private bool _chainSynched;
+
+        private readonly Node _node;
         private WebSocketServer _wss;
 
-        private Node _node;
+        public P2PServer(Node node) { _node = node; }
 
-        public P2PServer(Node node)
-        {
-            _node = node;
-        }
-
-        public void SendBack(string data)
-        {
-            Send(data);
-        }
+        public void SendBack(string data) { Send(data); }
 
         // public void Start(int port)
         // {
@@ -29,10 +20,6 @@ namespace Blockchain2
         //     Console.WriteLine($"Started server at ws://127.0.0.1:{port}");
         // }
 
-        protected override void OnMessage(MessageEventArgs e)
-        {
-            _node?.MessageReceived?.Invoke(this, e);
-
-        }
+        protected override void OnMessage(MessageEventArgs e) { _node?.MessageReceived?.Invoke(this, e); }
     }
 }
