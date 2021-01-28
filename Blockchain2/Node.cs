@@ -4,7 +4,6 @@
     using System.IO;
     using System.Linq;
     using System.Reflection;
-    using System.Threading;
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using WebSocketSharp;
@@ -24,11 +23,11 @@
 
         private IList<string> knownNodeAddresses = new List<string>();
 
+        public string BlockchainFilePath => Path.Combine(Directory.GetCurrentDirectory(), Name + ".json");
+
         public string IpAddress { get; set; }
 
         public bool IsMining { get; set; }
-
-        public string BlockchainFilePath => Path.Combine(Directory.GetCurrentDirectory(), Name + ".json");
 
         public Blockchain MyBlockchain { get; set; } = new();
 
@@ -73,24 +72,26 @@
             }
         }
 
-
-        private bool IsBlockchainNewer(Blockchain newChain) {
-            // Check whether this nodes our the other nodes Blockchain is the current
-            if (newChain.IsValid() && newChain.Chain.Count > MyBlockchain.Chain.Count) {
-                return true;
-            }
-
-            return false;
+        public void MineBlockOnBackgroundThread() {
+            IsMining = true;
+            Task.Run(
+                () => {
+                    Console.WriteLine("Started mining new block in the background...");
+                    MyBlockchain.MineNewBlock();
+                    IsMining = false;
+                    Console.WriteLine("Success: New Block mined! Broadcasting to other nodes...");
+                    BroadcastBlockchain();
+                });
         }
 
         public void Start(int port) {
             // Init blockchain or load from file
-            // TODO: Reactivate
-            try {
-                MyBlockchain = JsonConvert.DeserializeObject<Blockchain>(File.ReadAllText(BlockchainFilePath));
-            } catch (Exception e) {
+            // // TODO: Reactivate
+            // try {
+            //     MyBlockchain = JsonConvert.DeserializeObject<Blockchain>(File.ReadAllText(BlockchainFilePath));
+            // } catch (Exception e) {
                 MyBlockchain.InitializeChain();
-            }
+            // }
 
             IpAddress = $"{_baseUrl}:{port}";
 
@@ -103,16 +104,14 @@
             MessageReceived += OnMessageReceived;
         }
 
-        public void MineBlockOnBackgroundThread() {
-            IsMining = true;
-            Task.Run(
-                () => {
-                    Console.WriteLine("Started mining new block in the background...");
-                    MyBlockchain.MineNewBlock();
-                    IsMining = false;
-                    Console.WriteLine("Success: New Block mined! Broadcasting to other nodes...");
-                });
-            BroadcastBlockchain();
+
+        private bool IsBlockchainNewer(Blockchain newChain) {
+            // Check whether this nodes our the other nodes Blockchain is the current
+            if (newChain.IsValid() && newChain.Chain.Count > MyBlockchain.Chain.Count) {
+                return true;
+            }
+
+            return false;
         }
 
 
@@ -132,7 +131,8 @@
                             return;
                         }
 
-                        var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, Flag = true, SenderAddress = IpAddress, Data = JsonConvert.SerializeObject(MyBlockchain) };
+                        var answer = new Message() { MessageTypeEnum = MessageTypeEnum.BlockchainMessage, Flag = true,
+                                                       SenderAddress = IpAddress, Data = JsonConvert.SerializeObject(MyBlockchain) };
                         SendBack(sender, JsonConvert.SerializeObject(answer));
                     }
                 }

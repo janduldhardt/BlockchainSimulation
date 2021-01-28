@@ -18,6 +18,7 @@
 
                 var connectUrl = $"ws://127.0.0.1:600{i}";
                 node.Connect(connectUrl);
+                Console.WriteLine($"Connected with new node at {connectUrl}");
                 await Task.Delay(1000);
             }
         }
@@ -199,10 +200,12 @@
                 var isAccept = Console.ReadLine()?.Trim().ToLower();
                 if (isAccept == "y") {
                     transaction.Status = TransactionStatusEnum.Accepted;
+                    node.BroadcastTransaction(transaction);
                 }
 
                 if (isAccept == "n") {
                     transaction.Status = TransactionStatusEnum.Declined;
+                    node.BroadcastTransaction(transaction);
                 }
             }
         }
